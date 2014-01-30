@@ -18,13 +18,13 @@ The goal of Project Costanza was to fit all of these feature on a single chip in
 
 It's buggy right now. I need to dig up the adapter board that interfaced all of the external hardware with the FPGA and document it. One day.
 
-# Goals
+## Goals
 
 * Utilize an FPGA chip to represent complex electronic logic to communicate with video, audio, human input, and external storage
 * Design a fully independent software toolkit for developing applications
 * Test the integrity of the system through the creation and execution of small tech demo video games a personally unexplored division of computer engineering
 
-# The Future
+## The Future
 
 This thing was written towards the end of some deadlines. It needs a complete rewrite and some serious love.
 
