@@ -1,0 +1,159 @@
+== General
+
+Word length: 16 bits
+Memory size: 4 banks * 8192 rows * 512 columns * 16 bits = 0x1000000 words
+Addressable range: 0x000000 - 0xFFFFFF
+
+== Registers
+
+- Each register is one word in length
+
+General:
+  0000  RA
+  0001  RB
+  0010  RC
+  0011  RD
+  0100  RE
+  0101  RF
+  1010  RG
+  1011  RH
+  1100  RX
+  1101  RY
+  1110  R0
+  1111  R1
+
+Memory access:
+  0110  RMH   High word for memory addressing
+  0111  RML   Low word for memory addressing
+
+Joypad:
+  1000  J1
+  1001  J2
+
+Private:
+  RIH   High word for instruction pointer
+  RIL   Low word for instruction pointer
+  RSH   High word for stack pointer
+  RSL   Low word for stack pointer
+
+== Button Input
+
+- Bit description of J1/J2, 0 is LSB
+
+0       Up
+1       Down
+2       Left
+3       Right
+4       A
+5       B
+6       X
+7       Y
+8       L
+9       R
+10      Select
+11      Start
+12-15	  ?? (Reserved)
+
+== Instructions
+
+- pusha and popa do not retain memory, instruction, or stack registers
+
+reg instructions[32]
+reg temp[16]
+reg temp2[16]
+reg instruction_pointer[32] = 0
+reg registers[4][16]
+
+- fetch two words @ instruction_pointer into instructions
+- swich instructions[31..24]
+-   00000000: // mov Ra, Rb
+-     registers[instructions[23..20]] <= registers[instructions[19..16]]
+-   00000001: // mov Ra, d
+-     registers[instructions[23..20]] <= instructions[15..0]
+-   00000010: // ld Ra
+-     fetch word @ {registers[RMH], registers[RML]} into temp
+-     registers[instructions[23..20]] <= temp
+-   00000011: // st Ra
+-     temp <= registers[instructions[23..20]]
+-     write word @ {registers[RMH], registers[RML]} from temp
+-   00000100: // lea
+-     fetch 2 word @ {registers[RMH], registers[RML]} into temp, temp2
+-     registers[RMH] <= temp, registers[RML] <= temp2
+-   00010000: // br
+-     instructions_pointer <= {RML, RML}
+
+00000000 aaaabbbb                     mov Ra, Rb        Ra <= Rb
+00000001 aaaaxxxx dddddddd dddddddd   mov Ra, d         Ra <= d
+
+00000010 aaaaxxxx                     ld Ra             Ra <= [RMH, RML]
+00000011 aaaaxxxx                     st Ra             [RMH, RML] <= Ra
+00000100 xxxxxxxx                     lea               RMH, RML <= [RMH, RML]
+
+00010000 xxxxxxxx                     br                RIH, RIL <= RMH, RML
+00010001 xxxxxxxx                     brl               FS != FO ? br
+00010010 xxxxxxxx                     brle              FZ || FS != FO ? br
+00010011 xxxxxxxx                     brg               !FZ || FS == FO ? br
+00010100 xxxxxxxx                     brge              FS == FO ? br
+00010101 xxxxxxxx                     bre               FZ ? br
+00010110 xxxxxxxx                     brne              !FZ ? br
+00010111 xxxxxxxx                     brb               FC ? br
+00011000 xxxxxxxx                     brbe              FZ || FC ? br
+00011001 xxxxxxxx                     bra               !FZ && !FC ? br
+00011010 xxxxxxxx                     brae              !FC ? br
+
+00110000 aaaabbbb                     add Ra, Rb        Ra <= Ra + Rb
+00110001 aaaabbbb                     sub Ra, Rb        Ra <= Ra - Rb
+00110010 aaaabbbb                     and Ra, Rb        Ra <= Ra & Rb
+00110011 aaaabbbb                     or Ra, Rb         Ra <= Ra | Rb
+00110100 aaaabbbb                     xor Ra, Rb        Ra <= Ra ^ Rb
+00110101 aaaaxxxx                     not Ra            Ra <= ~Ra
+00110110 aaaabbbb                     cmp Ra, Rb        Ra - Rb (store flags)
+00110111 aaaaxxxx                     shl Ra            Logical shift left
+00111000 aaaaxxxx                     shr Ra            Logical shift right
+00111001 aaaaxxxx                     rl Ra             Rotate left
+00111010 aaaaxxxx                     rr Ra             Rotate right
+00111011 aaaaxxxx                     neg Ra            Negate Ra
+00111100 xxxxxxxx dddddddd dddddddd   addma Ra          Add Ra to (RMH, RML)
+00111101 xxxxxxxx dddddddd dddddddd   subma Ra          Subtract Ra from (RMH, RML)
+
+01000000 xxxxxxxx                     ssp               RSH, RSL <= RMH, RML
+01000001 aaaaxxxx                     push Ra           Push Ra to stack
+01000010 aaaaxxxx                     pop Ra            Pop stack to Ra
+01000101 xxxxxxxx                     call              Push RIH, RIL and jmp
+01000110 xxxxxxxx                     ret               Pop RIL, RIH and jmp
+01000111 xxxxxxxx                     lsp               RMH, RML <= RSH, RSL
+
+01010000 xxxxxxxx                     nop               No operation
+01010001 xxxxxxxx                     halt              Halt until interrupt
+
+01010010 xxxxxxxx xxxxxxxd dddddddd   hrd d             Read d words from (RMH, RML) to high ram
+01010011 xxxxxxxx xxxxxxxd dddddddd   hwr d             Write d words from high ram to (RMH, RML)
+
+01010100 xxxxxxxd                     snda d            Set the sound address for track d using (RMH, RML)
+01010101 xxxxxxxd                     sndl d            Set the sound length for track d using (RMH, RML)
+01010110 xxxxxxed                     sndr d, e         Set the sound repeat for track d, loop = e
+01010111 xxxxxxxd                     sndw d            Write the stored address/length/loop
+01011000 xxxxxxed                     sndp d, e         Set the sound playing status for track d, active = e
+
+01011001 xxxxxxdd ddddddde eeeeeeee   imgd d, e         Set image dimensions (0 to 511, d = width, e = height, 0 represents 1 pixel)
+01011010 xxxxdddd ddddddee eeeeeeee   imgcd d, e        Set image position (-511 to 511, d = x, e = y, SIGN AND MAGNITUDE)
+01011011 xxxxxxxx                     imgc              Set image position (-511 to 511, of RX and RY, two's complement)
+01011100 xxxxxxxx                     imga              Draw image at address using (RMH, RML)
+
+01011101 xxxxxxxx                     flip              Swap framebuffers
+
+
+== Pseudo-instructions
+
+lma (load memory address) <32-bit address or label name>
+lacc (load accessory) <32-bit address or label name> load into (RG, RH)
+pushacc
+popacc
+
+Toss these two?
+ldx (load x) <number between -511 and 511>
+ldy (load y) <number between -511 and 511>
+
+== Interrupts
+
+????

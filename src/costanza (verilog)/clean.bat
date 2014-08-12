@@ -1,0 +1,1 @@
+rm -rf *.rpt *.chg smart.log *.htm *.eqn *.pin *.sof *.pof *.done *.smsg *.summary *.bak source/*.bak source/*.qip PLLJ_PLLSPE_INFO.txt db incremental_db
